@@ -216,7 +216,7 @@ void loop() {
     delay(25);
     I2C_Group2.end();
     // TODO:运算预测数据
-    tempdata();
+    prediction_data();
 
     // 输出所有数据
     printData();

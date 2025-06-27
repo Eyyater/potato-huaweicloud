@@ -27,6 +27,8 @@ float g1_vis[6], g1_ir[6], g2_vis[6], g2_ir[6], vis[6], ir[6];
 float temperature = 0, humidity = 0;
 float DW, SC, L, a, b, LB, BI;
 bool shtValid = false;
+float vis_norm[6];
+float ir_norm[6];
 
 void normalizeArray(const float *input, float *output, int n);
 
@@ -35,6 +37,7 @@ float SC_k[12] = {0.273429662, 0.956928253, 0.822901607, 0.721949399, 2.45658588
 float L_k[12] = {27.2930412, 95.5180969, 82.1399078, 72.063118, 245.210037, 15.521657, 17.345417, 28.9872379, 149.48439, 313.934753, 389.395081, 390.81424};
 float a_k[12] = {10.8823223, 38.0851173, 32.750946, 28.7331142, 97.7705078, 6.18881798, 6.91599083, 11.5578346, 59.6026382, 125.172531, 155.260193, 155.826035};
 float b_k[12] = {27.8884449, 97.6018524, 83.9318085, 73.6351929, 250.559357, 15.8602648, 17.7238121, 29.6196022, 152.745422, 320.783325, 397.889832, 399.339935};
+float DW_b = 0.174750224, SC_b = 0.228527382, L_b = 22.8110123, a_b = 9.09524059, b_b = 23.3086395;
 
 void initializeGroup1()
 {
@@ -137,10 +140,6 @@ void readGroup2() {
     ir[i] = (g1_ir[i] + g2_ir[i]) / 2.0f;
   }
 
-  // 新建两个数组，不影响原 vis 和 ir
-  float vis_norm[6];
-  float ir_norm[6];
-
   // 调用归一化函数
   normalizeArray(vis, vis_norm, 6);
   normalizeArray(ir, ir_norm, 6);
@@ -170,44 +169,88 @@ void normalizeArray(const float *input, float *output, int n)
   }
 }
 
-// TODO:添加数据预测
-void tempdata() {
-  DW = 18.6;
-  SC = 59.3;
-  L = 20.3;
-  a = 597.6;
-  b = 47.9;
-  LB = 98.66;
-  BI = 78.16;
+float predict_data(const float *k, float b)
+{
+  float y[12];
+  for (int i = 0; i < 6; ++i)
+  {
+    y[i] = k[i] * vis_norm[i] + b;
+  }
+  for (int i = 6; i < 12; ++i)
+  {
+    y[i] = k[i] * ir_norm[i-6] + b;
+  }
+  float sum = 0.0f;
+  for (int i = 0; i < 12; i++)
+  {
+    sum += y[i];
+  }
+  return sum;
+}
+
+void prediction_data() {
+  DW = predict_data(DW_k, DW_b);
+  SC = predict_data(SC_k, SC_b);
+  L = predict_data(L_k, L_b);
+  a = predict_data(a_k, a_b);
+  b = predict_data(b_k, b_b);
+  LB = 778.5;
+  BI = 945.7;
 }
 
 void printData() {
   // 输出第一组数据
-  Serial.print("[AS7262_1] V:"); Serial.print(g1_vis[0]);
-  Serial.print(" B:"); Serial.print(g1_vis[1]);
-  Serial.print(" G:"); Serial.print(g1_vis[2]);
-  Serial.print(" Y:"); Serial.print(g1_vis[3]);
-  Serial.print(" O:"); Serial.print(g1_vis[4]);
-  Serial.print(" R:"); Serial.println(g1_vis[5]);
-  Serial.print("[AS7263_1] R:"); Serial.print(g1_ir[0]);
-  Serial.print(" S:"); Serial.print(g1_ir[1]);
-  Serial.print(" T:"); Serial.print(g1_ir[2]);
-  Serial.print(" U:"); Serial.print(g1_ir[3]);
-  Serial.print(" V:"); Serial.print(g1_ir[4]);
-  Serial.print(" W:"); Serial.println(g1_ir[5]);
+  // Serial.print("[AS7262_1] V:"); Serial.print(g1_vis[0]);
+  // Serial.print(" B:"); Serial.print(g1_vis[1]);
+  // Serial.print(" G:"); Serial.print(g1_vis[2]);
+  // Serial.print(" Y:"); Serial.print(g1_vis[3]);
+  // Serial.print(" O:"); Serial.print(g1_vis[4]);
+  // Serial.print(" R:"); Serial.println(g1_vis[5]);
+  // Serial.print("[AS7263_1] R:"); Serial.print(g1_ir[0]);
+  // Serial.print(" S:"); Serial.print(g1_ir[1]);
+  // Serial.print(" T:"); Serial.print(g1_ir[2]);
+  // Serial.print(" U:"); Serial.print(g1_ir[3]);
+  // Serial.print(" V:"); Serial.print(g1_ir[4]);
+  // Serial.print(" W:"); Serial.println(g1_ir[5]);
   // 输出第二组数据
-  Serial.print("[AS7262_2] V:"); Serial.print(g2_vis[0]);
-  Serial.print(" B:"); Serial.print(g2_vis[1]);
-  Serial.print(" G:"); Serial.print(g2_vis[2]);
-  Serial.print(" Y:"); Serial.print(g2_vis[3]);
-  Serial.print(" O:"); Serial.print(g2_vis[4]);
-  Serial.print(" R:"); Serial.println(g2_vis[5]);
-  Serial.print("[AS7263_2] R:"); Serial.print(g2_ir[0]);
-  Serial.print(" S:"); Serial.print(g2_ir[1]);
-  Serial.print(" T:"); Serial.print(g2_ir[2]);
-  Serial.print(" U:"); Serial.print(g2_ir[3]);
-  Serial.print(" V:"); Serial.print(g2_ir[4]);
-  Serial.print(" W:"); Serial.println(g2_ir[5]);
+  // Serial.print("[AS7262_2] V:"); Serial.print(g2_vis[0]);
+  // Serial.print(" B:"); Serial.print(g2_vis[1]);
+  // Serial.print(" G:"); Serial.print(g2_vis[2]);
+  // Serial.print(" Y:"); Serial.print(g2_vis[3]);
+  // Serial.print(" O:"); Serial.print(g2_vis[4]);
+  // Serial.print(" R:"); Serial.println(g2_vis[5]);
+  // Serial.print("[AS7263_2] R:"); Serial.print(g2_ir[0]);
+  // Serial.print(" S:"); Serial.print(g2_ir[1]);
+  // Serial.print(" T:"); Serial.print(g2_ir[2]);
+  // Serial.print(" U:"); Serial.print(g2_ir[3]);
+  // Serial.print(" V:"); Serial.print(g2_ir[4]);
+  // Serial.print(" W:"); Serial.println(g2_ir[5]);
+  // 输出平均数据
+  Serial.print("[AS7262_ave] V:"); Serial.print(vis[0]);
+  Serial.print(" B:"); Serial.print(vis[1]);
+  Serial.print(" G:"); Serial.print(vis[2]);
+  Serial.print(" Y:"); Serial.print(vis[3]);
+  Serial.print(" O:"); Serial.print(vis[4]);
+  Serial.print(" R:"); Serial.println(vis[5]);
+  Serial.print("[AS7263_ave] R:"); Serial.print(ir[0]);
+  Serial.print(" S:"); Serial.print(ir[1]);
+  Serial.print(" T:"); Serial.print(ir[2]);
+  Serial.print(" U:"); Serial.print(ir[3]);
+  Serial.print(" V:"); Serial.print(ir[4]);
+  Serial.print(" W:"); Serial.println(ir[5]);
+  // 输出归一化数据
+  Serial.print("[AS7262_norm] V:"); Serial.print(vis_norm[0]);
+  Serial.print(" B:"); Serial.print(vis_norm[1]);
+  Serial.print(" G:"); Serial.print(vis_norm[2]);
+  Serial.print(" Y:"); Serial.print(vis_norm[3]);
+  Serial.print(" O:"); Serial.print(vis_norm[4]);
+  Serial.print(" R:"); Serial.println(vis_norm[5]);
+  Serial.print("[AS7263_norm] R:"); Serial.print(ir_norm[0]);
+  Serial.print(" S:"); Serial.print(ir_norm[1]);
+  Serial.print(" T:"); Serial.print(ir_norm[2]);
+  Serial.print(" U:"); Serial.print(ir_norm[3]);
+  Serial.print(" V:"); Serial.print(ir_norm[4]);
+  Serial.print(" W:"); Serial.println(ir_norm[5]);
   // 输出温湿度
   if(shtValid) {
     Serial.print("[SHT3x] Temp:");
@@ -218,5 +261,12 @@ void printData() {
   } else {
     Serial.println("[SHT3x] 读取错误");
   }
+  // Serial.print(SC);
+  // Serial.println("==================================");
+  // Serial.print(L);
+  // Serial.println("==================================");
+  // Serial.print(a);
+  // Serial.println("==================================");
+  // Serial.print(b);
   Serial.println("==================================");
 }
