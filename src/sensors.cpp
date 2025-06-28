@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <AS726X.h>
 #include <ArtronShop_SHT3x.h>
+#include "data_process.h"
 
 // ==== I2C总线定义（使用两个I2C控制器分时复用）====
 TwoWire I2C_Group1 = TwoWire(0);  // I2C0 控制器
@@ -25,12 +26,12 @@ ArtronShop_SHT3x sht3x(0x44, &I2C_Group1);  // 温湿度传感器共享Group1总
 // ==== 数据存储变量 ====
 float g1_vis[6], g1_ir[6], g2_vis[6], g2_ir[6], vis[6], ir[6];
 float temperature = 0, humidity = 0;
-float DW, SC, L, a, b, LB, BI;
+float DW, SC, L, a, b, LB, BI, x;
 bool shtValid = false;
 float vis_norm[6];
 float ir_norm[6];
 
-void normalizeArray(const float *input, float *output, int n);
+void normalize_array(const float *input, float *output, int n);
 
 float DW_k[12] = {0.209086075, 0.731743515, 0.62925601, 0.552059948, 1.87850106, 0.118908055, 0.132879481, 0.222064957, 1.14516759, 2.40498614, 2.98307157, 2.99394321};
 float SC_k[12] = {0.273429662, 0.956928253, 0.822901607, 0.721949399, 2.45658588, 0.155500501, 0.173771471, 0.290402651, 1.49757838, 3.14509034, 3.90107393, 3.91529131};
@@ -141,61 +142,19 @@ void readGroup2() {
   }
 
   // 调用归一化函数
-  normalizeArray(vis, vis_norm, 6);
-  normalizeArray(ir, ir_norm, 6);
+  normalize_array(vis, vis_norm, 6);
+  normalize_array(ir, ir_norm, 6);
 }
 
-// 通用归一化函数：将 input[0..n-1] 归一化到 output[0..n-1]
-void normalizeArray(const float *input, float *output, int n)
-{
-  // 1. 找到最小值和最大值
-  float vmin = input[0], vmax = input[0];
-  for (int i = 1; i < n; ++i)
-  {
-    if (input[i] < vmin)
-      vmin = input[i];
-    if (input[i] > vmax)
-      vmax = input[i];
-  }
-  // 2. 计算极差，避免除以零
-  float vrange = vmax - vmin;
-  if (vrange == 0.0f)
-    vrange = 1.0f;
-
-  // 3. 应用 (x - min) / (max - min)
-  for (int i = 0; i < n; ++i)
-  {
-    output[i] = (input[i] - vmin) / vrange;
-  }
-}
-
-float predict_data(const float *k, float b)
-{
-  float y[12];
-  for (int i = 0; i < 6; ++i)
-  {
-    y[i] = k[i] * vis_norm[i] + b;
-  }
-  for (int i = 6; i < 12; ++i)
-  {
-    y[i] = k[i] * ir_norm[i-6] + b;
-  }
-  float sum = 0.0f;
-  for (int i = 0; i < 12; i++)
-  {
-    sum += y[i];
-  }
-  return sum;
-}
-
-void prediction_data() {
-  DW = predict_data(DW_k, DW_b);
-  SC = predict_data(SC_k, SC_b);
-  L = predict_data(L_k, L_b);
-  a = predict_data(a_k, a_b);
-  b = predict_data(b_k, b_b);
-  LB = 778.5;
-  BI = 945.7;
+void prediction_data() { // 预测数据
+  DW = predict_data(DW_k, DW_b, vis_norm, ir_norm);
+  SC = predict_data(SC_k, SC_b, vis_norm, ir_norm);
+  L = predict_data(L_k, L_b, vis_norm, ir_norm);
+  a = predict_data(a_k, a_b, vis_norm, ir_norm);
+  b = predict_data(b_k, b_b, vis_norm, ir_norm);
+  LB = L / b;
+  x = (a + 1.75 * L) / (5.645 * L + a - 3.012 * b);
+  BI = 100 * (x - 0.31) / 0.172;
 }
 
 void printData() {

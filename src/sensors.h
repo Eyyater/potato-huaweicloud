@@ -42,7 +42,7 @@ void initializeGroup1();
 void initializeGroup2();
 void readGroup1();
 void readGroup2();
-void prediction_data(); // TODO:添加预测函数声明
+void prediction_data();
 void printData();
 
 #endif // SENSOR_SYSTEM_H
